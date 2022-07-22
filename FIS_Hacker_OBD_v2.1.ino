@@ -178,11 +178,12 @@ void setup(){
   }else Serial.println("Starting CAN Infotaiment failed!");
 
   //----------------------  pobranie danych z EEPROM  -------------------------------      
+  f_settings = 1;
   f_screen1 = EEPROM.read(1);
   if(f_screen1 > 10) f_screen1 = 8;
   f_screen2 = EEPROM.read(2);
   if(f_screen2 > 10) f_screen2 = 9; 
-
+  
   
   //-----------------------------  uruchom ELM ------------------------------------- 
   mySerial.println("ATZ");  //RESET_ALL
@@ -964,7 +965,7 @@ void loop(){
     
     //--------------------------------  obsluga kierownicy MF -----------------------------------------
     
-    //---------------  Mode button -------------------
+    //---------------  Mode button double press -------------------
     if((mf_byte1 == 57) && (mf_byte2 == 1)){          //39 01 - double press  
       if(f_screen1/100 == 0){
         f_screen1=f_screen1+100;
@@ -983,8 +984,9 @@ void loop(){
         Serial.println(f_screen1);
       }
     }
-   
-    if((mf_byte1 == 58) && (mf_byte2 == 28)){
+
+    //---------------  Scroll button single press -------------------
+    if((mf_byte1 == 58) && (mf_byte2 == 26)){ //3A 1A - single press
      if(f_settings == 1) f_settings=2;
      else f_settings =1;
     }
@@ -1016,22 +1018,23 @@ void loop(){
       if(mf_byte2 == 3 || mf_byte2 == 12){
        if(f_settings == 1){
          if(f_screen1 > 7) f_screen1--;
-         else f_screen1=11;
+         else f_screen1=10;
          EEPROM.write(2,f_screen1);
          row1_100 = 13;
          row1_10 = 13;
          row1_1 = 13;
          if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen1");
-       }
+       }  
        else if(f_settings == 2){
-         if(f_screen2 > 1) f_screen2--;
-         else f_screen2=11;
+         if(f_screen2 > 0) f_screen2--;
+         else f_screen2=10;
          EEPROM.write(2,f_screen2);
          row2_100 = 13;
          row2_10 = 13;
          row2_1 = 13;
          if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen2");
-      }     
+        }     
+      }
     }
     
     if(f_debug == 1|| f_debug == 5){
