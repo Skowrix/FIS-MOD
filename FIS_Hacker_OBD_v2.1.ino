@@ -986,7 +986,7 @@ void loop(){
     }
 
     //---------------  Scroll button single press -------------------
-    if((mf_byte1 == 58) && (mf_byte2 == 26)){ //3A 1A - single press
+    if(mf_byte2 == 26 || mf_byte2 == 167){ //3A 1A  lub 3B A7 - single press
      if(f_settings == 1) f_settings=2;
      else f_settings =1;
     }
