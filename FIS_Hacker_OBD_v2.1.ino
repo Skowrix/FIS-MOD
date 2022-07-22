@@ -110,8 +110,7 @@ char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
 //char screen_char2[4];
 
 //0 - OilP, 1 - STFT, 2 - LTFT, 3 - tADV, 4 - IAT, 5 - MAF, 6 - LBD, 7 - EGT, 8 - OILt, 9 - Boost, 10 - Coolant temp, +100 - OFF
-uint8_t f_screen1;
-uint8_t f_screen2; 
+uint8_t f_screen1, f_screen2, f_settings;
 
 uint8_t f_debug = 0;  // debugowanie
 uint8_t f_OBD_read; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
@@ -984,29 +983,57 @@ void loop(){
         Serial.println(f_screen1);
       }
     }
+   
+    if((mf_byte1 == 58) && (mf_byte2 == 28)){
+     if(f_settings == 1) f_settings=2;
+     else f_settings =1;
+    }
 
     if(f_screen1/100 == 0){ //if FIS-MOD activated
       //--------  scroll up -------------
       if(mf_byte2 == 2 || mf_byte2 == 11){
-        if(f_screen1 < 10) f_screen1++;  
-        else f_screen1=7;
-        row1_100 = 13;
-        row1_10 = 13;
-        row1_1 = 13;
-        EEPROM.write(1,f_screen1);
-        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP");
-      }
+       if(f_settings == 1){
+         if(f_screen1 < 10) f_screen1++;  
+         else f_screen1=7;
+         row1_100 = 13;
+         row1_10 = 13;
+         row1_1 = 13;
+         EEPROM.write(1,f_screen1);
+         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen1");
+        }
+       else if(f_settings ==2){
+         if(f_screen2 < 10) f_screen2++;  
+         else f_screen2=0;
+         row2_100 = 13;
+         row2_10 = 13;
+         row2_1 = 13;
+         EEPROM.write(1,f_screen2);
+         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen2");         
+         }
+       }
+     
       //--------  scroll down -------------
       if(mf_byte2 == 3 || mf_byte2 == 12){
-        if(f_screen2 < 10) f_screen2++;
-        else f_screen2=0;
-        EEPROM.write(2,f_screen2);
-        row2_100 = 13;
-        row2_10 = 13;
-        row2_1 = 13;
-        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN");
+       if(f_settings == 1){
+         if(f_screen1 > 7) f_screen1--;
+         else f_screen1=11;
+         EEPROM.write(2,f_screen1);
+         row1_100 = 13;
+         row1_10 = 13;
+         row1_1 = 13;
+         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen1");
+       }
+       else if(f_settings == 2){
+         if(f_screen2 > 1) f_screen2--;
+         else f_screen2=11;
+         EEPROM.write(2,f_screen2);
+         row2_100 = 13;
+         row2_10 = 13;
+         row2_1 = 13;
+         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen2");
       }     
     }
+    
     if(f_debug == 1|| f_debug == 5){
       Serial.print("OILp ADC: "); 
       Serial.println(oil_adc);  
