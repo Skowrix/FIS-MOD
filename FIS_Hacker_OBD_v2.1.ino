@@ -86,6 +86,20 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define CAN_INFOTAIMENT_PIN 7         //                                                              <<--------  sprawdzic piny z CANShield!!!!!!!
 #define BUTTON_PIN  A0               //                                                              
 
+//-----------------------------  Definicje settinsów -----------------------------------
+#define OILP 0
+#define STFT 1
+#define LTFT 2
+#define tADV 3
+#define IAT 4
+#define MAF 5
+#define LBD 6
+#define EGT 7
+#define OILt 8
+#define BST 9
+#define TMP 10
+
+
 //---------------------------  Definicje zmiennych ----------------------------------
 
 //----------- zmienne do obslugi CAN  --------------
@@ -441,7 +455,7 @@ void loop(){
   {
     switch(f_screen1)
     {
-      case 0:
+      case OILP:
         data1[0]='O';
         data1[1]='I';
         data1[2]='L';
@@ -458,7 +472,7 @@ void loop(){
         }
         break; 
              
-      case 1:
+      case STFT:
         data1[0]='S';
         data1[1]='T';
         data1[2]='F';
@@ -479,7 +493,7 @@ void loop(){
         break;
 
 
-      case 2:
+      case LTFT:
         data1[0]='L';
         data1[1]='T';
         data1[2]='F';
@@ -500,7 +514,7 @@ void loop(){
         break;
 
 
-      case 3:
+      case tADV:
         data1[0]='t';
         data1[1]='A';
         data1[2]='D';
@@ -521,7 +535,7 @@ void loop(){
         break;
         
 
-      case 4:
+      case IAT:
         data1[0]='I';
         data1[1]='A';
         data1[2]='T';
@@ -542,7 +556,7 @@ void loop(){
         break;
         
 
-      case 5:
+      case MAF:
         data1[0]='M';
         data1[1]='A';
         data1[2]='F';
@@ -554,7 +568,7 @@ void loop(){
         break;
 
   
-      case 6:
+      case LBD:
         data1[0]='L';
         data1[1]='B';
         data1[2]='D';
@@ -566,7 +580,7 @@ void loop(){
         break;
 
 
-      case 7:
+      case EGT:
         data1[0]='E';
         data1[1]='G';
         data1[2]='T';
@@ -586,7 +600,7 @@ void loop(){
         break; 
 
 
-      case 8:
+      case OILt:
         data1[0]='O';
         data1[1]='I';
         data1[2]='L';
@@ -606,7 +620,7 @@ void loop(){
         break;        
 
         
-      case 9:
+      case BST:
         data1[0]='B';
         data1[1]='S';
         data1[2]='T';
@@ -623,11 +637,11 @@ void loop(){
         }
         break;
         
-      case 10:
-        data1[0]='c';
-        data1[1]='T';
-        data1[2]='M';
-        data1[3]='P';  
+      case TMP:
+        data1[0]='T';
+        data1[1]='M';
+        data1[2]='P';
+        data1[3]=' ';  
         if(coolant_temp<0)
         {
           row1_100 = 10; //znak '-'
@@ -652,7 +666,7 @@ void loop(){
   {
     switch(f_screen2)
     {
-      case 0:
+      case OILP:
         data2[0]='O';
         data2[1]='I';
         data2[2]='L';
@@ -669,7 +683,7 @@ void loop(){
         }
         break; 
               
-      case 1:
+      case STFT:
         data2[0]='S';
         data2[1]='T';
         data2[2]='F';
@@ -690,7 +704,7 @@ void loop(){
         break;
 
 
-      case 2:
+      case LTFT:
         data2[0]='L';
         data2[1]='T';
         data2[2]='F';
@@ -711,7 +725,7 @@ void loop(){
         break;
 
 
-      case 3:
+      case tADV:
         data2[0]='t';
         data2[1]='A';
         data2[2]='D';
@@ -732,7 +746,7 @@ void loop(){
         break;
         
 
-      case 4:
+      case IAT:
         data2[0]='I';
         data2[1]='A';
         data2[2]='T';
@@ -753,7 +767,7 @@ void loop(){
         break;
         
 
-      case 5:
+      case MAF:
         data2[0]='M';
         data2[1]='A';
         data2[2]='F';
@@ -765,7 +779,7 @@ void loop(){
         break;
         
 
-      case 6:
+      case LBD:
         data2[0]='L';
         data2[1]='B';
         data2[2]='D';
@@ -777,7 +791,7 @@ void loop(){
         break;
 
 
-      case 7:
+      case EGT:
         data2[0]='E';
         data2[1]='G';
         data2[2]='T';
@@ -797,7 +811,7 @@ void loop(){
         break;
 
 
-      case 8:
+      case OILt:
         data2[0]='O';
         data2[1]='I';
         data2[2]='L';
@@ -817,7 +831,7 @@ void loop(){
         break;
 
 
-      case 9:
+      case BST:
         data2[0]='B';
         data2[1]='S';
         data2[2]='T';
@@ -834,11 +848,11 @@ void loop(){
         }
         break;
 
-      case 10:
-        data2[0]='c';
-        data2[1]='T';
-        data2[2]='M';
-        data2[3]='P';  
+      case TMP:
+        data2[0]='T';
+        data2[1]='M';
+        data2[2]='P';
+        data2[3]=' ';  
         if(coolant_temp<0)
         {
           row2_100 = 10; //znak '-'
@@ -899,14 +913,14 @@ void loop(){
   if(loop_count>1100){   
 
     //--------------  1 linijka -------------------
-    if(f_screen1 == 0){
+    if(f_screen1 == OILP){
       data1[4] = liczby[11];  //spacja
       data1[5] = liczby[row1_100];
       data1[6] = liczby[12]; //znak kropki "."
       data1[7] = liczby[row1_10];
     }
     else{
-      if(f_screen1 == 6 || f_screen1 == 9){
+      if(f_screen1 == LBD || f_screen1 == BST){
         data1[4] = liczby[row1_100];
         data1[5] = liczby[12]; //znak kropki "."
         data1[6] = liczby[row1_10];
@@ -923,14 +937,14 @@ void loop(){
 
     //--------------  2 linijka ----------------
 
-   if(f_screen2 == 0){
+   if(f_screen2 == OILP){
       data2[4] = liczby[11];  //spacja
       data2[5] = liczby[row2_100];
       data2[6] = liczby[12];  //kropka
       data2[7] = liczby[row2_10];
     }
     else{
-     if(f_screen2 == 6 || f_screen2 == 9){
+     if(f_screen2 == LBD || f_screen2 == BST){
         data2[4] = liczby[row2_100];
         data2[5] = liczby[12];  //kropka
         data2[6] = liczby[row2_10];
