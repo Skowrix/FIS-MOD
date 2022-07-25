@@ -1,19 +1,18 @@
 // ==================================  display Boost(ADC), oil Temp(CAN) and data requested by OBD2 on FIS ==========================================
 //
 
-/* 
- * 0 - OliPress
- * 1 - STFT 
- * 2 - LTFT
- * 3 - tADV
- * 4 - IAT
- * 5 - MAF
- * 6 - Lambda
- * 7 - EGT
- * 8 - OilTemp
- * 9 - Boost
- * 10 - Coolant temp
-*/
+//-----------------------------  Definicje settinsów -----------------------------------
+#define OILP 0
+#define STFT 1
+#define LTFT 2
+#define tADV 3
+#define IAT 4
+#define MAF 5
+#define LBD 6
+#define EGT 7
+#define OILt 8
+#define BST 9
+#define TMP 10
 
 /*  FIS Hacker OBD
  *  display engine parameters on FIS 
@@ -85,20 +84,6 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define CAN_DRIVETRAIN_PIN 9   
 #define CAN_INFOTAIMENT_PIN 7         //                                                              <<--------  sprawdzic piny z CANShield!!!!!!!
 #define BUTTON_PIN  A0               //                                                              
-
-//-----------------------------  Definicje settinsów -----------------------------------
-#define OILP 0
-#define STFT 1
-#define LTFT 2
-#define tADV 3
-#define IAT 4
-#define MAF 5
-#define LBD 6
-#define EGT 7
-#define OILt 8
-#define BST 9
-#define TMP 10
-
 
 //---------------------------  Definicje zmiennych ----------------------------------
 
