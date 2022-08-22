@@ -1,19 +1,3 @@
-// ==================================  display Boost(ADC), oil Temp(CAN) and data requested by OBD2 on FIS ==========================================
-//
-
-//-----------------------------  Definicje settinsów -----------------------------------
-#define OILP 0
-#define STFT 1
-#define LTFT 2
-#define tADV 3
-#define IAT 4
-#define MAF 5
-#define LBD 6
-#define EGT 7
-#define OILt 8
-#define BST 9
-#define TMP 10
-
 /*  FIS Hacker OBD
  *  display engine parameters on FIS 
  *  rememer to update the fimrware version in code! 
@@ -73,6 +57,8 @@
 #include <SPI.h>
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
+#include <max6675.h>
+
 
 //-----------------------------  Definicje pinow -----------------------------------
 SoftwareSerial mySerial(3, 2); // RX, TX
@@ -82,8 +68,26 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define BOOST_PIN A7
 #define OILP_PIN A6
 #define CAN_DRIVETRAIN_PIN 9   
-#define CAN_INFOTAIMENT_PIN 7         //                                                              <<--------  sprawdzic piny z CANShield!!!!!!!
-#define BUTTON_PIN  A0               //                                                              
+#define CAN_INFOTAIMENT_PIN 7 
+#define BUTTON_PIN  A0   
+int thermoDO = 17;
+int thermoCS = 18;
+int thermoCLK = 19;
+
+MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+
+//-----------------------------  Definicje settinsów -----------------------------------
+#define OILP 0
+#define STFT 1
+#define LTFT 2
+#define tADV 3
+#define IAT 4
+#define MAF 5
+#define LBD 6
+#define EGT 7
+#define OILt 8
+#define BST 9
+#define TMP 10
 
 //---------------------------  Definicje zmiennych ----------------------------------
 
@@ -97,39 +101,36 @@ String OBD;
 byte data_byte[7];
 
 
-uint16_t loop_count; 
-
-int16_t boost_ref, oil_adc;  //boost reference value
+//----------  zmienne do obliczen wartosci  ------------
 int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm;  //available parameters
-int16_t row1_1, row1_10, row1_100, row2_1, row2_10, row2_100; //display values
+int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia OilT)
+int16_t boost_ref, oil_adc;  //boost reference value
 
-
-char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
-//char screen_char1[4];
-//char screen_char2[4];
-
-//0 - OilP, 1 - STFT, 2 - LTFT, 3 - tADV, 4 - IAT, 5 - MAF, 6 - LBD, 7 - EGT, 8 - OILt, 9 - Boost, 10 - Coolant temp, +100 - OFF
+//--------  zmienne do wyswietlania danych  -------------
 uint8_t f_screen1, f_screen2, f_settings;
-
-uint8_t f_debug = 0;  // debugowanie
-uint8_t f_OBD_read; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
-uint8_t mf_byte1, mf_byte2;  //obsĹ‚uga kierownicy MF
-
+int16_t row1_1, row1_10, row1_100, row2_1, row2_10, row2_100; //display values
+char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
 //zmienne do komunikacji z ELM327
 byte inData;
 char inChar;
 String BuildINString="";
 String WorkingString="";
-int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia OilT)
 
-//komunikacja przez COM
+//--------------  komunikacja przez COM ---------------
 byte inData_COM;
 char inChar_COM;
 String COM_String="";
 
+
+//--------------  zmienne pozostale --------------
+uint16_t loop_count;  //licznik petli
+uint8_t f_debug = 0;  // debugowanie
+uint8_t f_OBD_read; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
+uint8_t mf_byte1, mf_byte2;  //obsĹ‚uga kierownicy MF
+
+
 MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
 MCP_CAN CAN1(CAN_INFOTAIMENT_PIN);
-
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------  setup  ----------------------------------------------------------------------------------------------
@@ -280,6 +281,11 @@ void loop(){
     oil_press5 = oil_press4-100;
     oil_press6 = oil_press5*100;
     oil_press = oil_press6/16;
+  }
+
+  //-------------------------------------  odczyt EGT z termopary ---------------------------------------- 
+  if(loop_count == 407){
+    egt = thermocouple.readCelsius();
   }
 
   //-------------------------------------- wyslanie PID do OBD ----------------------------------------                               <<<<----- DO SPRAWDZENIA!!!!
@@ -957,6 +963,7 @@ void loop(){
     }
 
     //----------------------------------------  ALARMS  -----------------------------------------------
+    //-------- Oil Pressure  -----------
     if(oil_press<100 && rpm>0){
       digitalWrite(BUZZER_PIN, HIGH);
     }
@@ -995,20 +1002,20 @@ void loop(){
       if(mf_byte2 == 2 || mf_byte2 == 11){
        if(f_settings == 1){
          if(f_screen1 < 10) f_screen1++;  
-         else f_screen1=7;
+         else f_screen1 = 7;
          row1_100 = 13;
          row1_10 = 13;
          row1_1 = 13;
          EEPROM.write(1,f_screen1);
          if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen1");
         }
-       else if(f_settings ==2){
+       else if(f_settings == 2){
          if(f_screen2 < 10) f_screen2++;  
-         else f_screen2=0;
+         else f_screen2 = 0;
          row2_100 = 13;
          row2_10 = 13;
          row2_1 = 13;
-         EEPROM.write(1,f_screen2);
+         EEPROM.write(2,f_screen2);
          if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen2");         
          }
        }
@@ -1017,8 +1024,8 @@ void loop(){
       if(mf_byte2 == 3 || mf_byte2 == 12){
        if(f_settings == 1){
          if(f_screen1 > 7) f_screen1--;
-         else f_screen1=10;
-         EEPROM.write(2,f_screen1);
+         else f_screen1 = 10;
+         EEPROM.write(1,f_screen1);
          row1_100 = 13;
          row1_10 = 13;
          row1_1 = 13;
