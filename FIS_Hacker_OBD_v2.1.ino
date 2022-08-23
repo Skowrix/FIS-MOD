@@ -601,14 +601,14 @@ void alarms(){
   //-------- Oil Pressure  -----------
   if(oil_press<100 && rpm>700){
     digitalWrite(BUZZER_PIN, HIGH);
-    f_alarm = 1;
-    data2[8] = {'O','I','L',' ','P','R','E','S',};
+    f_alarm = 1;   
+    f_screen2 = OILP
   } 
   
   if(rpm > 2000 && oil_press<200){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
-    data2[8] = {'O','I','L',' ','P','R','E','S',};
+    f_screen2 = OILP
   }
 
 }
@@ -1122,7 +1122,14 @@ void send_fis(){
     }
   }
   else{
-    data1[8] = {' ','A','L','A','R','M','!',' '};
+    data1[0] = {' '};
+    data1[1] = {'A'};
+    data1[2] = {'L'};
+    data1[3] = {'A'};
+    data1[4] = {'R'};
+    data1[5] = {'M'};
+    data1[6] = {'!'};
+    data1[7] = {' '};
   }
   
   CAN1.sendMsgBuf(0x265, 0, 8, data1); 
