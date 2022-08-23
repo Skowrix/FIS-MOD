@@ -1,6 +1,7 @@
 /*  FIS Hacker OBD
  *  display engine parameters on FIS 
  *  rememer to update the fimrware version in code! 
+ *  https://github.dev/Skowrix/FIS-MOD
  *____________________________________________________________________________________
  *  
  * ---------------------- <<<<<   RELEASE NOTES   >>>>>  -----------------------------
@@ -8,7 +9,6 @@
  * 
  * version 2.1  
  * Release changes:
- *  [ ] rebuild OBD readings
  *  - added oil pressure reading
  *  - added alarms
  *  - added EGT reading
@@ -46,20 +46,14 @@
  * - boost calculated instatnly (no average calculation)
  * - added OBD2 communication error indicator "---" when no/wrong reply from ECU
  * 
-*/
-//====================================================================================================================================================
+ * ===================================================================================================================================================*/
 
- /*
-   * bitrate - bit rate in bits per seconds (bps) (1000E3, 500E3, 250E3, 200E3, 125E3, 100E3, 80E3, 50E3, 40E3, 20E3, 10E3, 5E3) - default was 500E3
-   * 500E - Drivetrain CAN works ok
-   * 100E - infotainment and komfort
-  */
   
-#include <mcp_can.h>
+#include <mcp_can.h>  //mcp_can    (https://github.com/coryjfowler/MCP_CAN_lib)
 #include <SPI.h>
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
-#include <max6675.h>
+#include <max6675.h>  //GyverMAX6675 (https://github.com/GyverLibs/GyverMAX6675)
 
 
 //-----------------------------  Definicje pinow -----------------------------------
@@ -76,6 +70,8 @@ int thermoDO = 17;
 int thermoCS = 18;
 int thermoCLK = 19;
 
+MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
+MCP_CAN CAN1(CAN_INFOTAIMENT_PIN);
 MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 
 //-----------------------------  Definicje settinsów -----------------------------------
@@ -93,6 +89,7 @@ MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 #define RPM 11
 
 #define PARAMETRS_MAX 11 //Liczba wszystkich parametrow - ważne aby aktualizować przy dodawaniu nowych !!!
+
 //---------------------------  Definicje zmiennych ----------------------------------
 
 //----------- zmienne do obslugi CAN  --------------
@@ -134,9 +131,6 @@ uint8_t f_debug = 0;  // debugowanie
 uint8_t f_OBD_read; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
 uint8_t mf_byte1, mf_byte2;  //obsĹ‚uga kierownicy MF
 
-
-MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
-MCP_CAN CAN1(CAN_INFOTAIMENT_PIN);
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------  setup  ----------------------------------------------------------------------------------------------
@@ -268,11 +262,11 @@ void loop(){
 
   if(loop_count == 1850) fis_activate();
   
-  if(loop_count == 1875) alarms();
-  
-  if(loop_count == 1905) calc_row1(); //obsluga 1 rzedu wyswietlacza
+  if(loop_count == 1900) calc_row1(); //obsluga 1 rzedu wyswietlacza
       
-  if(loop_count == 1955) calc_row2(); //obsluga 2 rzedu wyswietlacza
+  if(loop_count == 1950) calc_row2(); //obsluga 2 rzedu wyswietlacza
+
+  if(loop_count == 1975) alarms();
 
   if(loop_count > 2000) send_fis(); //wyslanie danych do FIS
   
