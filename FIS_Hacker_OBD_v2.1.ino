@@ -602,13 +602,13 @@ void alarms(){
   if(oil_press<100 && rpm>700){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;   
-    f_screen2 = OILP
+    f_screen2 = OILP;
   } 
   
   if(rpm > 2000 && oil_press<200){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
-    f_screen2 = OILP
+    f_screen2 = OILP;
   }
 
 }
