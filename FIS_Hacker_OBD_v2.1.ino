@@ -90,7 +90,9 @@ MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
 #define OILt 8
 #define BST 9
 #define TMP 10
+#define RPM 11
 
+#define PARAMETRS_MAX 11 //Liczba wszystkich parametrow - ważne aby aktualizować przy dodawaniu nowych !!!
 //---------------------------  Definicje zmiennych ----------------------------------
 
 //----------- zmienne do obslugi CAN  --------------
@@ -109,7 +111,7 @@ int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_pr
 int16_t boost_ref, oil_adc;  //boost reference value
 
 //--------  zmienne do wyswietlania danych  -------------
-uint8_t f_screen1, f_screen2;
+uint8_t f_screen1, f_screen2, f_alarm;
 uint8_t f_settings = 1;
 int16_t row1_1, row1_10, row1_100, row2_1, row2_10, row2_100; //display values
 char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
@@ -232,7 +234,7 @@ void loop(){
   
   CAN0.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN DRIVETRAIN
 
-  if(rxId == 1056) calc_tmp_oilt(); //przeliczenie temp. oleju i plynu chlodniczego
+  if(rxId == 1056) calc_tmp_oilt_rpm(); //przeliczenie temp. oleju i plynu chlodniczego
 
   if(rxId == 640) calc_rpm(); //przeliczenie RPM
      
@@ -335,8 +337,8 @@ void calc_tmp_oilt_rpm(){
 
   //---------------------------------------------- przeliczenie RPM  ----------------------------------------------------<<<<< poprawic !!!!
 void calc_rpm(){
-  if(f_debug == 1) Serial.print("ID 420 / 1056 received ");   
-  rpm = ((int)rxBuf[2]&&(int)rxBuf[3])/4;              
+  if(f_debug == 1) Serial.print("ID 280 / 640 received ");   
+  rpm = (int16_t)rxBuf[3]<<8|rxBuf[2])/4;              
 }    
 
 
@@ -408,6 +410,7 @@ void obd_send_pid(){
     }
     f_OBD_read = 100; 
   }
+}
 
 
 
@@ -498,7 +501,7 @@ void debug(){
     COM_String="";
 }
 
-
+//------------------------------  obsluga kierownicy MFSW -------------------------------
 void mfsw(){    
   //---------------  Mode button double press -------------------
   if((mf_byte1 == 57) && (mf_byte2 == 1)){          //39 01 - double press  
@@ -524,14 +527,16 @@ void mfsw(){
   if(mf_byte2 == 26 || mf_byte2 == 167){ //3A 1A  lub 3B A7 - single press
     if(f_settings == 1) f_settings=2;
     else f_settings =1;
+    digitalWrite(BUZZER_PIN, LOW);  //wylaczenie alarmow
+    f_alarm = 0;
   }
 
   if(f_screen1/100 == 0){ //if FIS-MOD activated
     //--------  scroll up -------------
     if(mf_byte2 == 2 || mf_byte2 == 11){
       if(f_settings == 1){
-        if(f_screen1 < 10) f_screen1++;  
-        else f_screen1 = 7;
+        if(f_screen1 < PARAMETRS_MAX) f_screen1++;  
+        else f_screen1 = 0;
         row1_100 = 13;
         row1_10 = 13;
         row1_1 = 13;
@@ -539,7 +544,7 @@ void mfsw(){
         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen1");
       }
       else if(f_settings == 2){
-        if(f_screen2 < 10) f_screen2++;  
+        if(f_screen2 < PARAMETRS_MAX) f_screen2++;  
         else f_screen2 = 0;
         row2_100 = 13;
         row2_10 = 13;
@@ -552,8 +557,8 @@ void mfsw(){
     //--------  scroll down -------------
     if(mf_byte2 == 3 || mf_byte2 == 12){
       if(f_settings == 1){
-        if(f_screen1 > 7) f_screen1--;
-        else f_screen1 = 10;
+        if(f_screen1 > 0) f_screen1--;
+        else f_screen1 = PARAMETRS_MAX;
         EEPROM.write(1,f_screen1);
         row1_100 = 13;
         row1_10 = 13;
@@ -562,7 +567,7 @@ void mfsw(){
       }  
       else if(f_settings == 2){
         if(f_screen2 > 0) f_screen2--;
-        else f_screen2=10;
+        else f_screen2= PARAMETRS_MAX;
         EEPROM.write(2,f_screen2);
         row2_100 = 13;
         row2_10 = 13;
@@ -591,11 +596,21 @@ void fis_activate(){
 
 //----------------------------------------  ALARMS  -----------------------------------------------
 void alarms(){
+  //wylaczenie alarmow przez nacisniecie rolki (zmiana linijki)
+  
   //-------- Oil Pressure  -----------
-  if(oil_press<100 && rpm>0){
+  if(oil_press<100 && rpm>700){
     digitalWrite(BUZZER_PIN, HIGH);
+    f_alarm = 1;
+    data2 = {'O','I','L','','P','R','E','S',};
+  } 
+  
+  if(rpm > 2000 && oil_press<200){
+    digitalWrite(BUZZER_PIN, HIGH);
+    f_alarm = 1;
+    data2 = {'O','I','L','','P','R','E','S',};
   }
-  else digitalWrite(BUZZER_PIN, LOW);
+
 }
 
 
@@ -803,7 +818,17 @@ void calc_row1(){
         row1_10 = (coolant_temp/10)-(row1_100*10);
         row1_1 = coolant_temp-(row1_100*100)-(row1_10*10); 
       }
-      break;        
+      break;   
+
+    case RPM:
+      data1[0]='R';
+      data1[1]='P';
+      data1[2]='M';
+      data1[3]=' '; 
+      row1_100 = rpm/1000; 
+      row1_10 = (rpm/100)-(row1_100*10);
+      row1_1 = rpm-(row1_100*1000)-(row1_10*100); 
+      break;
             
     default:
       break; 
@@ -1016,6 +1041,16 @@ void calc_row2(){
       }
       break;
 
+    case RPM:
+      data2[0]='R';
+      data2[1]='P';
+      data2[2]='M';
+      data2[3]=' '; 
+      row2_100 = rpm/1000; 
+      row2_10 = (rpm/100)-(row2_100*10);
+      row2_1 = rpm-(row2_100*1000)-(row2_10*100); 
+      break;
+
     default:
       break; 
   }
@@ -1026,52 +1061,74 @@ void calc_row2(){
 void send_fis(){   
 
   //--------------  1 linijka -------------------
-  if(f_screen1 == OILP){
-    data1[4] = liczby[11];  //spacja
-    data1[5] = liczby[row1_100];
-    data1[6] = liczby[12]; //znak kropki "."
-    data1[7] = liczby[row1_10];
-  }
-  else{
-    if(f_screen1 == LBD || f_screen1 == BST){
-      data1[4] = liczby[row1_100];
-      data1[5] = liczby[12]; //znak kropki "."
-      data1[6] = liczby[row1_10];
-      data1[7] = liczby[row1_1];
-    } 
-    else{
-      data1[4] = liczby[11];  //spacja
-      data1[5] = liczby[row1_100];
-      data1[6] = liczby[row1_10];
-      data1[7] = liczby[row1_1];
+  if(f_alarm == 0){
+    if(f_screen1 == RPM){
+      data1[4] = liczby[row1_100];  
+      data1[5] = liczby[row1_10];
+      data1[6] = liczby[row1_1];
+      data1[7] = liczby[0];
     }
-  }
-  CAN1.sendMsgBuf(0x265, 0, 8, data1);    
-
-  //--------------  2 linijka ---------------
-  if(f_screen2 == OILP){
-    data2[4] = liczby[11];  //spacja
-    data2[5] = liczby[row2_100];
-    data2[6] = liczby[12];  //kropka
-    data2[7] = liczby[row2_10];
-  }
-  else{
-    if(f_screen2 == LBD || f_screen2 == BST){
+    else{
+      if(f_screen1 == OILP){
+        data1[4] = liczby[11];  //spacja
+        data1[5] = liczby[row1_100];
+        data1[6] = liczby[12]; //znak kropki "."
+        data1[7] = liczby[row1_10];
+      }
+      else{
+        if(f_screen1 == LBD || f_screen1 == BST){
+          data1[4] = liczby[row1_100];
+          data1[5] = liczby[12]; //znak kropki "."
+          data1[6] = liczby[row1_10];
+          data1[7] = liczby[row1_1];
+        } 
+        else{
+          data1[4] = liczby[11];  //spacja
+          data1[5] = liczby[row1_100];
+          data1[6] = liczby[row1_10];
+          data1[7] = liczby[row1_1];
+        }
+      }
+    }
+  
+    //--------------  2 linijka ---------------
+    if(f_screen2 == RPM){
       data2[4] = liczby[row2_100];
-      data2[5] = liczby[12];  //kropka
-      data2[6] = liczby[row2_10];
-      data2[7] = liczby[row2_1];
+      data2[5] = liczby[row2_10];
+      data2[6] = liczby[row2_1]; 
+      data2[7] = liczby[0];
     }
     else{
-      data2[4] = liczby[11];  //spacja
-      data2[5] = liczby[row2_100];
-      data2[6] = liczby[row2_10];
-      data2[7] = liczby[row2_1];
+      if(f_screen2 == OILP){
+        data2[4] = liczby[11];  //spacja
+        data2[5] = liczby[row2_100];
+        data2[6] = liczby[12];  //kropka
+        data2[7] = liczby[row2_10];
+      }
+      else{
+        if(f_screen2 == LBD || f_screen2 == BST){
+          data2[4] = liczby[row2_100];
+          data2[5] = liczby[12];  //kropka
+          data2[6] = liczby[row2_10];
+          data2[7] = liczby[row2_1];
+        }
+        else{
+          data2[4] = liczby[11];  //spacja
+          data2[5] = liczby[row2_100];
+          data2[6] = liczby[row2_10];
+          data2[7] = liczby[row2_1];
+        }
+      }
     }
   }
+  else{
+    data1 = {' ','A','L','A','R','M','!',' '};
+  }
   
+  CAN1.sendMsgBuf(0x265, 0, 8, data1); 
   CAN1.sendMsgBuf(0x267, 0, 8, data2);
-  
+
+
   if(f_debug == 1 || f_debug == 3){
     Serial.print("Screen1: ");
     Serial.println(data1);      
