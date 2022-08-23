@@ -128,7 +128,7 @@ String COM_String="";
 //--------------  zmienne pozostale --------------
 uint16_t loop_count;  //licznik petli
 uint8_t f_debug = 0;  // debugowanie
-uint8_t f_OBD_read; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
+uint8_t f_OBD_read = 1; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
 uint8_t mf_byte1, mf_byte2;  //obsĹ‚uga kierownicy MF
 
 
@@ -348,7 +348,7 @@ void calc_mf_bytes(){
       Serial.print(mf_byte1); 
       Serial.println(mf_byte2);  
     }
-  mfsw()
+  mfsw();
   }
 }
 
@@ -636,7 +636,7 @@ void calc_row1(){
       data1[1]='T';
       data1[2]='F';
       data1[3]='T';      
-      if(row1_100 == 13) break;
+      //if(row1_100 == 13) break;
       if(stft<0)
       {
         row1_100 = 10;   //znak -
@@ -657,7 +657,7 @@ void calc_row1(){
       data1[1]='T';
       data1[2]='F';
       data1[3]='T'; 
-      if(row1_100 == 13) break;
+      //if(row1_100 == 13) break;
       if(ltft<0)
       {
         row1_100 = 10;   //znak -
@@ -678,7 +678,7 @@ void calc_row1(){
       data1[1]='A';
       data1[2]='D';
       data1[3]='V';   
-      if(row1_100 == 13) break;
+      //if(row1_100 == 13) break;
       if(tadv<0)
       {
         row1_100 = 10;   //znak -
@@ -699,7 +699,7 @@ void calc_row1(){
       data1[1]='A';
       data1[2]='T';
       data1[3]=' ';
-      if(row1_100 == 13) break; 
+      //if(row1_100 == 13) break; 
       if(iat<0)
       {
         row1_100 = 10;   //znak -
@@ -720,7 +720,7 @@ void calc_row1(){
       data1[1]='A';
       data1[2]='F';
       data1[3]=' ';
-      if(row1_100 == 13) break;
+      //if(row1_100 == 13) break;
       row1_100 = maf/100; 
       row1_10 = maf/10-(row1_100*10);
       row1_1 = maf-(row1_100*100)-(row1_10*10);
@@ -732,7 +732,7 @@ void calc_row1(){
       data1[1]='B';
       data1[2]='D';
       data1[3]=' ';
-      if(row1_100 == 13) break;
+      //if(row1_100 == 13) break;
       row1_100 = lbd/100; 
       row1_10 = (lbd/10)-(row1_100*10);
       row1_1 = lbd-(row1_100*100)-(row1_10*10);       
@@ -857,7 +857,7 @@ void calc_row2(){
       data2[1]='T';
       data2[2]='F';
       data2[3]='T';       
-      if(row2_100 == 13) break;
+      //if(row2_100 == 13) break;
       if(stft<0)
       {
         row2_100 = 10;   //znak -
@@ -878,7 +878,7 @@ void calc_row2(){
       data2[1]='T';
       data2[2]='F';
       data2[3]='T'; 
-      if(row2_100 == 13) break;
+      //if(row2_100 == 13) break;
       if(ltft<0)
       {
         row2_100 = 10;   //znak -
@@ -899,7 +899,7 @@ void calc_row2(){
       data2[1]='A';
       data2[2]='D';
       data2[3]='V';      
-      if(row2_100 == 13) break;
+      //if(row2_100 == 13) break;
       if(tadv<0)
       {
         row2_100 = 10;   //znak -
@@ -920,7 +920,7 @@ void calc_row2(){
       data2[1]='A';
       data2[2]='T';
       data2[3]=' '; 
-      if(row2_100 == 13) break;
+      //if(row2_100 == 13) break;
       if(iat<0)
       {
         row2_100 = 10;   //znak -
@@ -941,7 +941,7 @@ void calc_row2(){
       data2[1]='A';
       data2[2]='F';
       data2[3]=' ';  
-      if(row2_100 == 13) break;
+      //if(row2_100 == 13) break;
       row2_100 = maf/100; 
       row2_10 = maf/10-(row2_100*10);
       row2_1 = maf-(row2_100*100)-(row2_10*10);
@@ -953,7 +953,7 @@ void calc_row2(){
       data2[1]='B';
       data2[2]='D';
       data2[3]=' ';  
-      if(row2_100 == 13) break;   
+      //if(row2_100 == 13) break;   
       row2_100 = lbd/100; 
       row2_10 = (lbd/10)-(row2_100*10);
       row2_1 = lbd-(row2_100*100)-(row2_10*10);       
