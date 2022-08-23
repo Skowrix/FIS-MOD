@@ -129,7 +129,7 @@ String COM_String="";
 uint16_t loop_count;  //licznik petli
 uint8_t f_debug = 0;  // debugowanie
 uint8_t f_OBD_read = 1; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
-uint8_t mf_byte1, mf_byte2;  //obsĹ‚uga kierownicy MF
+uint8_t mf_byte1, mf_byte2, mf_read=0;  //obsĹ‚uga kierownicy MF
 
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -234,7 +234,7 @@ void loop(){
      
   CAN1.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN INFOTAIMENT                            
   
-  calc_mf_bytes();  //odczyt polecen dla MFSW
+  if(mf_read == 0)calc_mf_bytes();  //odczyt polecen dla MFSW
     
 
   /*======================================================================================================================================================
@@ -572,6 +572,7 @@ void mfsw(){
       }     
     }
   }
+  mf_read = 1;
 }
 
 
@@ -1158,4 +1159,5 @@ void send_fis(){
   if(f_OBD_read >= 100)f_OBD_read++;
   if(f_OBD_read > 150) f_OBD_read = 1;           
   loop_count = 0; 
+  mf_read = 0;
 }
