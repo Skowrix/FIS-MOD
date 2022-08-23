@@ -254,9 +254,9 @@ void loop(){
 
   if(loop_count == 450) calc_oilp();  //odczyt OilPress z ADC
 
-  if(loop_count==600) ReadData_OBD(); //odczyt z ELM327
+  if(loop_count == 600) ReadData_OBD(); //odczyt z ELM327
     
-  if(loop_count==800) calc_obd(); //przeliczenie odczytow z OBD
+  if(loop_count == 800) calc_obd(); //przeliczenie odczytow z OBD
 
   if(loop_count == 1500) ReadData_COM();  //odczyt portu COM (debug)
 
@@ -272,7 +272,7 @@ void loop(){
       
   if(loop_count == 1955) calc_row2(); //obsluga 2 rzedu wyswietlacza
 
-  if(loop_count>2000) send_fis(); //wyslanie danych do FIS
+  if(loop_count > 2000) send_fis(); //wyslanie danych do FIS
   
   loop_count++; //licznik 
 }
@@ -336,7 +336,7 @@ void calc_tmp_oilt_rpm(){
   //---------------------------------------------- przeliczenie RPM  ----------------------------------------------------<<<<< poprawic !!!!
 void calc_rpm(){
   if(f_debug == 1) Serial.print("ID 420 / 1056 received ");   
-  rpm = (int)rxBuf[3];              
+  rpm = ((int)rxBuf[2]&&(int)rxBuf[3])/4;              
 }    
 
 
