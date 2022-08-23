@@ -244,7 +244,7 @@ void loop(){
   
   if(loop_count == 2) egt = thermocouple.readCelsius(); //odczyt EGT z termopary 
 
-  if(loop_count == 25) obd_send_pid();
+  if(loop_count == 25) obd_send_pid();  //wyslanie pidow do OBD
 
   if(loop_count == 50)  boost = ((analogRead(BOOST_PIN)/2)-boost_ref)/2;  //odczyt BOOST z ADC
 
@@ -256,9 +256,9 @@ void loop(){
 
   if(loop_count == 1500) ReadData_COM();  //odczyt portu COM (debug)
 
-  if(loop_count == 1750) debug();
+  if(loop_count == 1750) debug(); //obsluga debugowania
 
-  if(loop_count == 1800) mfsw();  //obsluga kierownicy MF
+  //if(loop_count == 1800) mfsw();  //obsluga kierownicy MF
 
   if(loop_count == 1850) fis_activate();
   
@@ -316,7 +316,7 @@ void ReadData_COM(){
 }
 
 
-//---------------------------------- przeliczenie temp. oleju i plynu chlodniczego -----------------------------------
+//------------------------------- przeliczenie temp. oleju i plynu chlodniczego ---------------------------------
 void calc_tmp_oilt_rpm(){
   if(f_debug == 1) Serial.print("ID 420 / 1056 received ");   
   coolant_temp = (((int)rxBuf[4]-64)*0.75);              
@@ -329,14 +329,14 @@ void calc_tmp_oilt_rpm(){
 }
 
 
-  //---------------------------------------------- przeliczenie RPM  ----------------------------------------------------<<<<< poprawic !!!!
+//----------------------------------------- przeliczenie RPM  ---------------------------------------------------
 void calc_rpm(){
   if(f_debug == 1) Serial.print("ID 280 / 640 received ");   
   rpm = (int16_t)(rxBuf[3]<<8|rxBuf[2])/4;              
 }    
 
 
-//----------------------------------- odczyt CAN INFOTAIMENT  -------------------------------------                                      
+//----------------------------------- odczyt CAN INFOTAIMENT  ------------------------------------                                      
 void calc_mf_bytes(){
   if(rxId == 1475){   
     mf_byte1 = rxBuf[0];
@@ -348,11 +348,12 @@ void calc_mf_bytes(){
       Serial.print(mf_byte1); 
       Serial.println(mf_byte2);  
     }
+  mfsw()
   }
 }
 
 
-//-------------------------------------  odczyt OilPress z ADC  ----------------------------------------  
+//-------------------------------------  odczyt OilPress z ADC  ----------------------------------
 void calc_oilp(){
   oil_adc = analogRead(OILP_PIN);
   oil_press1 = 50*oil_adc;
@@ -365,7 +366,7 @@ void calc_oilp(){
 }
 
 
-//-------------------------------------- wyslanie PID do OBD ----------------------------------------                               <<<<----- DO SPRAWDZENIA!!!!
+//-------------------------------------- wyslanie PID do OBD ----------------------------------
 void obd_send_pid(){
   if(f_OBD_read < 100){
     OBD = "01";
@@ -407,8 +408,7 @@ void obd_send_pid(){
 }
 
 
-
-//------------------------  przeliczenie odczytow z OBD ------------------------------------            <<<<<---------------  PRZEROBIĆ NA OBSLUGE 1 LUB 2 PIDOW  !!!!
+//------------------------  przeliczenie odczytow z OBD ------------------------------------
 void calc_obd(){
   if(BuildINString){
     //sprawdzenie poprawnosci paczki danych
@@ -476,6 +476,7 @@ void calc_obd(){
   }
 }
 
+//-----------------------------------  debugowanie -----------------------------------------
 void debug(){
     /* _________________________________________________ 
    *   
@@ -495,7 +496,8 @@ void debug(){
     COM_String="";
 }
 
-//------------------------------  obsluga kierownicy MFSW -------------------------------
+
+//------------------------------  obsluga kierownicy MFSW ----------------------------------------
 void mfsw(){    
   //---------------  Mode button double press -------------------
   if((mf_byte1 == 57) && (mf_byte2 == 1)){          //39 01 - double press  
@@ -573,7 +575,7 @@ void mfsw(){
 }
 
 
-//---------------------------------------------- aktywacja modulu telefonu ---------------------------------------------
+//------------------------------- aktywacja modulu telefonu ----------------------------------------
 void fis_activate(){
   if(f_screen1/100 == 0){
     byte data_byte[] = {0x82, 0xb2, 0x00, 0x00, 0x00, 0x00, 0x10};
@@ -585,7 +587,6 @@ void fis_activate(){
     if(f_debug == 1 || f_debug == 2)  Serial.println("Phone deactivated");                
   }
 }
-
 
 
 //----------------------------------------  ALARMS  -----------------------------------------------
@@ -1051,7 +1052,7 @@ void calc_row2(){
 }
 
 
-//-------------------------------------------------- wyslanie danych do FIS -----------------------------------------------
+//------------------------------------- wyslanie danych do FIS ---------------------------------------
 void send_fis(){   
 
   //--------------  1 linijka -------------------
@@ -1153,7 +1154,7 @@ void send_fis(){
     Serial.println(oil_press6); 
     Serial.println(oil_press); 
   } 
-  //----------- resetowanie licznikow pomocniczych  ----------------
+  //-------------- resetowanie licznikow pomocniczych  ----------------
   if(f_OBD_read >= 100)f_OBD_read++;
   if(f_OBD_read > 150) f_OBD_read = 1;           
   loop_count = 0; 
