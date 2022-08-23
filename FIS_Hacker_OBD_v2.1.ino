@@ -338,7 +338,7 @@ void calc_tmp_oilt_rpm(){
   //---------------------------------------------- przeliczenie RPM  ----------------------------------------------------<<<<< poprawic !!!!
 void calc_rpm(){
   if(f_debug == 1) Serial.print("ID 280 / 640 received ");   
-  rpm = (int16_t)rxBuf[3]<<8|rxBuf[2])/4;              
+  rpm = (int16_t)(rxBuf[3]<<8|rxBuf[2])/4;              
 }    
 
 
@@ -602,13 +602,13 @@ void alarms(){
   if(oil_press<100 && rpm>700){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
-    data2 = {'O','I','L','','P','R','E','S',};
+    data2[8] = {'O','I','L',' ','P','R','E','S',};
   } 
   
   if(rpm > 2000 && oil_press<200){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
-    data2 = {'O','I','L','','P','R','E','S',};
+    data2[8] = {'O','I','L',' ','P','R','E','S',};
   }
 
 }
@@ -1122,7 +1122,7 @@ void send_fis(){
     }
   }
   else{
-    data1 = {' ','A','L','A','R','M','!',' '};
+    data1[8] = {' ','A','L','A','R','M','!',' '};
   }
   
   CAN1.sendMsgBuf(0x265, 0, 8, data1); 
