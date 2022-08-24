@@ -572,7 +572,7 @@ void mfsw(){
       }     
     }
   }
-  mf_read = 1;
+  mf_read = 2;
 }
 
 
@@ -1159,5 +1159,5 @@ void send_fis(){
   if(f_OBD_read >= 100)f_OBD_read++;
   if(f_OBD_read > 150) f_OBD_read = 1;           
   loop_count = 0; 
-  mf_read = 0;
+  if(mf_read > 0) mf_read--;
 }
