@@ -823,7 +823,7 @@ void calc_row1(){
       data1[3]=' '; 
       row1_100 = rpm/1000; 
       row1_10 = (rpm/100)-(row1_100*10);
-      row1_1 = rpm-(row1_100*1000)-(row1_10*100); 
+      row1_1 = (rpm-(row1_100*1000)-(row1_10*100))/10; 
       break;
             
     default:
@@ -1044,7 +1044,7 @@ void calc_row2(){
       data2[3]=' '; 
       row2_100 = rpm/1000; 
       row2_10 = (rpm/100)-(row2_100*10);
-      row2_1 = rpm-(row2_100*1000)-(row2_10*100); 
+      row2_1 = (rpm-(row2_100*1000)-(row2_10*100))/10; 
       break;
 
     default:
