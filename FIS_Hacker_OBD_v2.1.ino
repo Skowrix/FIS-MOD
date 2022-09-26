@@ -69,13 +69,15 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define THERMO_CS 18
 #define THERMO_DO 17
 #define THERMO_CLK  19
+
+#define OIL_PRESS_DELAY 1000  //czas na wytworzenie cisnienia w magistrali od momentu uruchomienia silnika
 #define THERMO_READ_DELAY 500 //odstep miedzy odczytami z MAX6675
 
 MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
 MCP_CAN CAN1(CAN_INFOTAIMENT_PIN);
 MAX6675 thermocouple(THERMO_CLK, THERMO_CS, THERMO_DO);
 
-//-----------------------------  Definicje settinsów -----------------------------------
+//-----------------------------  Definicje settingsów -----------------------------------
 #define OILP 0
 #define STFT 1
 #define LTFT 2
@@ -99,13 +101,12 @@ byte len;
 byte rxBuf[8];
 char data1[8];
 char data2[8];
-String OBD;
 byte data_byte[7];
 
 
 //----------  zmienne do obliczen wartosci  ------------
-int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm;  //available parameters
-int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia OilT)
+int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm; 
+int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia Oil_press)
 int16_t boost_ref, oil_adc;  //boost reference value
 
 //--------  zmienne do wyswietlania danych  -------------
@@ -117,6 +118,7 @@ char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
 //----------  zmienne do komunikacji z ELM327 -----------
 byte inData;
 char inChar;
+String OBD;
 String BuildINString="";
 String WorkingString="";
 
@@ -129,9 +131,9 @@ String COM_String="";
 //--------------  zmienne pozostale --------------
 uint16_t loop_count;  //licznik petli
 uint8_t f_debug = 0;  // debugowanie
-uint8_t f_OBD_read = 1; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
+uint8_t f_OBD_read = 1; //zmienna pomocnicza wskazujaca na aktywny odczyt z OBD
 uint8_t mf_byte1, mf_byte2, mf_read=0;  //obsĹ‚uga kierownicy MF
-unsigned long last_thermo_read; //zmienna do obliczania opoznienia odczytow z MAX6675
+unsigned long last_thermo_read, eng_start_time; //zmienna do obliczania opoznienia odczytow z MAX6675
 
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -245,7 +247,8 @@ void loop(){
    * =============================================== funkcje wykonywane tylko 1 na 2000 petli ============================================================
    * =====================================================================================================================================================
   */
-  
+  if(loop)
+
   if(loop_count == 2){
     if(millis() - last_thermo_read > THERMO_READ_DELAY){
       egt = (uint16_t)(thermocouple.readCelsius()); //odczyt EGT z termopary 
@@ -341,7 +344,8 @@ void calc_tmp_oilt_rpm(){
 //----------------------------------------- przeliczenie RPM  ---------------------------------------------------
 void calc_rpm(){
   if(f_debug == 1) Serial.print("ID 280 / 640 received ");   
-  rpm = (int16_t)(rxBuf[3]<<8|rxBuf[2])/4;              
+  rpm = (int16_t)(rxBuf[3]<<8|rxBuf[2])/4; 
+  if(rpm<400) eng_start_time = millis();           
 }    
 
 
@@ -512,16 +516,9 @@ void mfsw(){
   if((mf_byte1 == 57) && (mf_byte2 == 1)){          //39 01 - double press  
     if(f_screen1/100 == 0){
       f_screen1=f_screen1+100;
-      /*
-      byte data_byte[] = {0x0, 0xb2, 0x00, 0x00, 0x00, 0x00, 0x10};
-      CAN1.sendMsgBuf(0x665, 0, 7, data_byte);  //turn off Phone module   
-      if(f_debug == 1 || f_debug == 2)  Serial.println("Phone deactivated"); 
-      delay(500);
-      */
     }
     else{
       f_screen1=f_screen1-100;
-      //delay(200);
     }
     EEPROM.write(1,f_screen1);
     if(f_debug == 1 || f_debug == 2){
@@ -609,7 +606,7 @@ void alarms(){
   //wylaczenie alarmow przez nacisniecie rolki (zmiana linijki)
   
   //-------- Oil Pressure  -----------
-  if(oil_press<100 && rpm>700){
+  if(oil_press<100 && rpm>700 && millis()-eng_start_time>OIL_PRESS_DELAY){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;   
     f_screen2 = OILP;
