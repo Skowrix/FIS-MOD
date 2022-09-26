@@ -53,7 +53,7 @@
 #include <SPI.h>
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
-#include <max6675.h>  //GyverMAX6675 (https://github.com/GyverLibs/GyverMAX6675)
+#include <MAX6675.h>  //MAX6675 with hardware SPI (https://github.com/zhenek-kreker/MAX6675/)
 
 
 //-----------------------------  Definicje pinow -----------------------------------
@@ -66,13 +66,11 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define CAN_DRIVETRAIN_PIN 9   
 #define CAN_INFOTAIMENT_PIN 7 
 #define BUTTON_PIN  A0   
-int thermoDO = 17;
-int thermoCS = 18;
-int thermoCLK = 19;
+#define THERMO_CS = 18;
 
 MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
 MCP_CAN CAN1(CAN_INFOTAIMENT_PIN);
-MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+MAX6675 thermocouple(THERMO_CS);
 
 //-----------------------------  Definicje settinsów -----------------------------------
 #define OILP 0
@@ -242,7 +240,7 @@ void loop(){
    * =====================================================================================================================================================
   */
   
-  if(loop_count == 2) egt = thermocouple.readCelsius(); //odczyt EGT z termopary 
+  if(loop_count == 2) egt = (uint16_t)(thermocouple.readTempC()); //odczyt EGT z termopary 
 
   if(loop_count == 25) obd_send_pid();  //wyslanie pidow do OBD
 
@@ -517,6 +515,7 @@ void mfsw(){
       Serial.print("Screen: ");
       Serial.println(f_screen1);
     }
+    mf_read = 1;
   }
 
   //---------------  Scroll button single press -------------------
@@ -525,6 +524,7 @@ void mfsw(){
     else f_settings =1;
     digitalWrite(BUZZER_PIN, LOW);  //wylaczenie alarmow
     f_alarm = 0;
+    mf_read = 1;
   }
 
   if(f_screen1/100 == 0){ //if FIS-MOD activated
@@ -548,6 +548,7 @@ void mfsw(){
         EEPROM.write(2,f_screen2);
         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen2");         
         }
+        mf_read = 1;
       }
     
     //--------  scroll down -------------
@@ -569,10 +570,10 @@ void mfsw(){
         row2_10 = 13;
         row2_1 = 13;
         if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen2");
-      }     
+      }
+      mf_read = 1;     
     }
   }
-  mf_read = 2;
 }
 
 
@@ -1159,5 +1160,5 @@ void send_fis(){
   if(f_OBD_read >= 100)f_OBD_read++;
   if(f_OBD_read > 150) f_OBD_read = 1;           
   loop_count = 0; 
-  if(mf_read > 0) mf_read--;
+  mf_read = 0;
 }
