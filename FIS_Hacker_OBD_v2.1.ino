@@ -6,7 +6,8 @@
  *  
  * ---------------------- <<<<<   RELEASE NOTES   >>>>>  -----------------------------
  * ___________________________________________________________________________________
- * 
+ * <<<Note: From version 2.1 project migrated to gitHub. For release notes see commit history>>>
+ *
  * version 2.1  
  * Release changes:
  *  - added oil pressure reading
@@ -69,6 +70,7 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define THERMO_CS 18
 #define THERMO_DO 17
 #define THERMO_CLK  19
+#define AUX_HEATER_1 A1
 
 #define OIL_PRESS_DELAY 1000  //czas na wytworzenie cisnienia w magistrali od momentu uruchomienia silnika
 #define THERMO_READ_DELAY 500 //odstep miedzy odczytami z MAX6675
@@ -103,11 +105,9 @@ char data1[8];
 char data2[8];
 byte data_byte[7];
 
-
 //----------  zmienne do obliczen wartosci  ------------
-int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm; 
+int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm, boost_ref, oil_adc, ext_temp;
 int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia Oil_press)
-int16_t boost_ref, oil_adc;  //boost reference value
 
 //--------  zmienne do wyswietlania danych  -------------
 uint8_t f_screen1, f_screen2, f_alarm, internal_error;
@@ -237,24 +237,18 @@ void setup(){
 void loop(){
   
   CAN0.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN DRIVETRAIN
-  if(rxId == 1056) calc_tmp_oilt_rpm(); //przeliczenie temp. oleju i plynu chlodniczego
-  if(rxId == 640) calc_rpm(); //przeliczenie RPM
+  if(rxId == 1056) calc_canid_420(); //przeliczenie temp. oleju i plynu chlodniczego
+  if(rxId == 640) calc_canid_280(); //przeliczenie RPM
 
   CAN1.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN INFOTAIMENT                              
-  if(mf_read == 0)calc_mf_bytes();  //odczyt polecen dla MFSW
+  if(mf_read == 0 && rxId == 1475)calc_mf_bytes();  //odczyt polecen dla MFSW
 
   /*======================================================================================================================================================
    * =============================================== funkcje wykonywane tylko 1 na 2000 petli ============================================================
    * =====================================================================================================================================================
   */
-  if(loop)
 
-  if(loop_count == 2){
-    if(millis() - last_thermo_read > THERMO_READ_DELAY){
-      egt = (uint16_t)(thermocouple.readCelsius()); //odczyt EGT z termopary 
-      last_thermo_read = millis();
-    } 
-  } 
+  if(loop_count == 2) egt_read();
 
   if(loop_count == 25) obd_send_pid();  //wyslanie pidow do OBD
 
@@ -268,9 +262,9 @@ void loop(){
 
   if(loop_count == 1500) ReadData_COM();  //odczyt portu COM (debug)
 
-  if(loop_count == 1750) debug(); //obsluga debugowania
+  if(loop_count == 1600) aux_heater();  //uruchom ogrzewanie dodatkowe
 
-  //if(loop_count == 1800) mfsw();  //obsluga kierownicy MF
+  if(loop_count == 1750) debug(); //obsluga debugowania
 
   if(loop_count == 1850) fis_activate();
   
@@ -329,12 +323,12 @@ void ReadData_COM(){
 
 
 //------------------------------- przeliczenie temp. oleju i plynu chlodniczego ---------------------------------
-void calc_tmp_oilt_rpm(){
+void calc_canid_420(){
   if(f_debug == 1) Serial.print("ID 420 / 1056 received ");   
   coolant_temp = (((int)rxBuf[4]-64)*0.75);              
   oil_temp = (((int)rxBuf[3]-64)*0.75);
+  ext_temp = (((int)rxBuf[2]-100)/2);
   if(f_debug == 1){
-    //Serial.println(rxBuf); 
     Serial.print("Oil Temp: ");
     Serial.println(oil_temp);
   }    
@@ -342,26 +336,125 @@ void calc_tmp_oilt_rpm(){
 
 
 //----------------------------------------- przeliczenie RPM  ---------------------------------------------------
-void calc_rpm(){
+void calc_canid_280(){
   if(f_debug == 1) Serial.print("ID 280 / 640 received ");   
   rpm = (int16_t)(rxBuf[3]<<8|rxBuf[2])/4; 
   if(rpm<400) eng_start_time = millis();           
 }    
 
 
+//------------------------------------------  przeliczenie EGT  ----------------------------------------------
+void egt_read(){
+  if(millis() - last_thermo_read > THERMO_READ_DELAY){
+    egt = (uint16_t)(thermocouple.readCelsius()); //odczyt EGT z termopary 
+    last_thermo_read = millis();
+  } 
+} 
+
+
 //----------------------------------- odczyt CAN INFOTAIMENT  ------------------------------------                                      
-void calc_mf_bytes(){
-  if(rxId == 1475){   
-    mf_byte1 = rxBuf[0];
-    mf_byte2 = rxBuf[1];  
-    if(f_debug == 1 || f_debug == 2){                                             
-      Serial.print("CAN Infotaiment Msg:");
-      //Serial.println(rxBuf);
-      Serial.print("bytes:");
-      Serial.print(mf_byte1); 
-      Serial.println(mf_byte2);  
-    }
+void calc_mf_bytes(){  
+  mf_byte1 = rxBuf[0];
+  mf_byte2 = rxBuf[1];  
+  if(f_debug == 1 || f_debug == 2){                                             
+    Serial.print("CAN Infotaiment Msg:");
+    //Serial.println(rxBuf);
+    Serial.print("bytes:");
+    Serial.print(mf_byte1); 
+    Serial.println(mf_byte2);  
+  }
   mfsw();
+}
+
+
+//------------------------------  obsluga kierownicy MFSW ----------------------------------------
+void mfsw(){    
+  //---------------  Mode button double press -------------------
+  if(mf_byte1 == 57 && mf_byte2 == 1){          //39 01 - double press  
+    if(f_screen1/100 == 0){
+      f_screen1=f_screen1+100;
+    }
+    else{
+      f_screen1=f_screen1-100;
+    }
+    EEPROM.write(1,f_screen1);
+    if(f_debug == 1 || f_debug == 2){
+      Serial.print("Screen: ");
+      Serial.println(f_screen1);
+    }
+    mf_read = 1;
+  }
+
+  //---------------  Phone button press (MENU) -------------------
+  if(mf_byte1 == 60 && mf_byte2 == 42){          //3C 2A - double press  
+    if(f_screen1/100 == 0){
+      f_screen1=f_screen1+200;
+    }
+    else{
+      f_screen1=f_screen1-200;
+    }
+    if(f_debug == 1 || f_debug == 2){
+      Serial.print("Screen: ");
+      Serial.println(f_screen1);
+    }
+    mf_read = 1;
+  }
+
+  //---------------  Scroll button single press -------------------
+  if(mf_byte2 == 26 || mf_byte2 == 167){ //3A 1A  lub 3B A7 - single press
+    if(f_settings == 1) f_settings=2;
+    else f_settings =1;
+    digitalWrite(BUZZER_PIN, LOW);  //wylaczenie alarmow
+    f_alarm = 0;
+    mf_read = 1;
+  }
+
+  if(f_screen1/100 == 0){ //if FIS-MOD activated
+    //--------  scroll up -------------
+    if(mf_byte2 == 2 || mf_byte2 == 11){
+      if(f_settings == 1){
+        if(f_screen1 < PARAMETRS_MAX) f_screen1++;  
+        else f_screen1 = 0;
+        row1_100 = 13;
+        row1_10 = 13;
+        row1_1 = 13;
+        EEPROM.write(1,f_screen1);
+        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen1");
+      }
+      else if(f_settings == 2){
+        if(f_screen2 < PARAMETRS_MAX) f_screen2++;  
+        else f_screen2 = 0;
+        row2_100 = 13;
+        row2_10 = 13;
+        row2_1 = 13;
+        EEPROM.write(2,f_screen2);
+        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen2");         
+        }
+        mf_read = 1;
+      }
+    
+    //--------  scroll down -------------
+    if(mf_byte2 == 3 || mf_byte2 == 12){
+      if(f_settings == 1){
+        if(f_screen1 > 0) f_screen1--;
+        else f_screen1 = PARAMETRS_MAX;
+        EEPROM.write(1,f_screen1);
+        row1_100 = 13;
+        row1_10 = 13;
+        row1_1 = 13;
+        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen1");
+      }  
+      else if(f_settings == 2){
+        if(f_screen2 > 0) f_screen2--;
+        else f_screen2= PARAMETRS_MAX;
+        EEPROM.write(2,f_screen2);
+        row2_100 = 13;
+        row2_10 = 13;
+        row2_1 = 13;
+        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen2");
+      }
+      mf_read = 1;     
+    }
   }
 }
 
@@ -489,6 +582,7 @@ void calc_obd(){
   }
 }
 
+
 //-----------------------------------  debugowanie -----------------------------------------
 void debug(){
     /* _________________________________________________ 
@@ -510,86 +604,9 @@ void debug(){
 }
 
 
-//------------------------------  obsluga kierownicy MFSW ----------------------------------------
-void mfsw(){    
-  //---------------  Mode button double press -------------------
-  if((mf_byte1 == 57) && (mf_byte2 == 1)){          //39 01 - double press  
-    if(f_screen1/100 == 0){
-      f_screen1=f_screen1+100;
-    }
-    else{
-      f_screen1=f_screen1-100;
-    }
-    EEPROM.write(1,f_screen1);
-    if(f_debug == 1 || f_debug == 2){
-      Serial.print("Screen: ");
-      Serial.println(f_screen1);
-    }
-    mf_read = 1;
-  }
-
-  //---------------  Scroll button single press -------------------
-  if(mf_byte2 == 26 || mf_byte2 == 167){ //3A 1A  lub 3B A7 - single press
-    if(f_settings == 1) f_settings=2;
-    else f_settings =1;
-    digitalWrite(BUZZER_PIN, LOW);  //wylaczenie alarmow
-    f_alarm = 0;
-    mf_read = 1;
-  }
-
-  if(f_screen1/100 == 0){ //if FIS-MOD activated
-    //--------  scroll up -------------
-    if(mf_byte2 == 2 || mf_byte2 == 11){
-      if(f_settings == 1){
-        if(f_screen1 < PARAMETRS_MAX) f_screen1++;  
-        else f_screen1 = 0;
-        row1_100 = 13;
-        row1_10 = 13;
-        row1_1 = 13;
-        EEPROM.write(1,f_screen1);
-        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen1");
-      }
-      else if(f_settings == 2){
-        if(f_screen2 < PARAMETRS_MAX) f_screen2++;  
-        else f_screen2 = 0;
-        row2_100 = 13;
-        row2_10 = 13;
-        row2_1 = 13;
-        EEPROM.write(2,f_screen2);
-        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll UP screen2");         
-        }
-        mf_read = 1;
-      }
-    
-    //--------  scroll down -------------
-    if(mf_byte2 == 3 || mf_byte2 == 12){
-      if(f_settings == 1){
-        if(f_screen1 > 0) f_screen1--;
-        else f_screen1 = PARAMETRS_MAX;
-        EEPROM.write(1,f_screen1);
-        row1_100 = 13;
-        row1_10 = 13;
-        row1_1 = 13;
-        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen1");
-      }  
-      else if(f_settings == 2){
-        if(f_screen2 > 0) f_screen2--;
-        else f_screen2= PARAMETRS_MAX;
-        EEPROM.write(2,f_screen2);
-        row2_100 = 13;
-        row2_10 = 13;
-        row2_1 = 13;
-        if(f_debug == 1 || f_debug == 2) Serial.println("Scroll DOWN screen2");
-      }
-      mf_read = 1;     
-    }
-  }
-}
-
-
 //------------------------------- aktywacja modulu telefonu ----------------------------------------
 void fis_activate(){
-  if(f_screen1/100 == 0){
+  if(f_screen1/100 != 1){
     byte data_byte[] = {0x82, 0xb2, 0x00, 0x00, 0x00, 0x00, 0x10};
     CAN1.sendMsgBuf(0x665, 0, 7, data_byte);  //0x665 = 1637
     if(f_debug == 1 || f_debug == 2) Serial.println("Phone active");
@@ -1075,63 +1092,75 @@ void send_fis(){
 
   //--------------  1 linijka -------------------
   if(f_alarm == 0){
-    if(f_screen1 == RPM){
-      data1[4] = liczby[row1_100];  
-      data1[5] = liczby[row1_10];
-      data1[6] = liczby[row1_1];
-      data1[7] = liczby[0];
-    }
-    else{
-      if(f_screen1 == OILP){
-        data1[4] = liczby[11];  //spacja
-        data1[5] = liczby[row1_100];
-        data1[6] = liczby[12]; //znak kropki "."
-        data1[7] = liczby[row1_10];
+    if(f_screen%100 != 200){
+      if(f_screen1 == RPM){
+        data1[4] = liczby[row1_100];  
+        data1[5] = liczby[row1_10];
+        data1[6] = liczby[row1_1];
+        data1[7] = liczby[0];
       }
       else{
-        if(f_screen1 == LBD || f_screen1 == BST){
-          data1[4] = liczby[row1_100];
-          data1[5] = liczby[12]; //znak kropki "."
-          data1[6] = liczby[row1_10];
-          data1[7] = liczby[row1_1];
-        } 
-        else{
+        if(f_screen1 == OILP){
           data1[4] = liczby[11];  //spacja
           data1[5] = liczby[row1_100];
-          data1[6] = liczby[row1_10];
-          data1[7] = liczby[row1_1];
-        }
-      }
-    }
-  
-    //--------------  2 linijka ---------------
-    if(f_screen2 == RPM){
-      data2[4] = liczby[row2_100];
-      data2[5] = liczby[row2_10];
-      data2[6] = liczby[row2_1]; 
-      data2[7] = liczby[0];
-    }
-    else{
-      if(f_screen2 == OILP){
-        data2[4] = liczby[11];  //spacja
-        data2[5] = liczby[row2_100];
-        data2[6] = liczby[12];  //kropka
-        data2[7] = liczby[row2_10];
-      }
-      else{
-        if(f_screen2 == LBD || f_screen2 == BST){
-          data2[4] = liczby[row2_100];
-          data2[5] = liczby[12];  //kropka
-          data2[6] = liczby[row2_10];
-          data2[7] = liczby[row2_1];
+          data1[6] = liczby[12]; //znak kropki "."
+          data1[7] = liczby[row1_10];
         }
         else{
-          data2[4] = liczby[11];  //spacja
-          data2[5] = liczby[row2_100];
-          data2[6] = liczby[row2_10];
-          data2[7] = liczby[row2_1];
+          if(f_screen1 == LBD || f_screen1 == BST){
+            data1[4] = liczby[row1_100];
+            data1[5] = liczby[12]; //znak kropki "."
+            data1[6] = liczby[row1_10];
+            data1[7] = liczby[row1_1];
+          } 
+          else{
+            data1[4] = liczby[11];  //spacja
+            data1[5] = liczby[row1_100];
+            data1[6] = liczby[row1_10];
+            data1[7] = liczby[row1_1];
+          }
         }
       }
+    
+      //--------------  2 linijka ---------------
+      if(f_screen2 == RPM){
+        data2[4] = liczby[row2_100];
+        data2[5] = liczby[row2_10];
+        data2[6] = liczby[row2_1]; 
+        data2[7] = liczby[0];
+      }
+      else{
+        if(f_screen2 == OILP){
+          data2[4] = liczby[11];  //spacja
+          data2[5] = liczby[row2_100];
+          data2[6] = liczby[12];  //kropka
+          data2[7] = liczby[row2_10];
+        }
+        else{
+          if(f_screen2 == LBD || f_screen2 == BST){
+            data2[4] = liczby[row2_100];
+            data2[5] = liczby[12];  //kropka
+            data2[6] = liczby[row2_10];
+            data2[7] = liczby[row2_1];
+          }
+          else{
+            data2[4] = liczby[11];  //spacja
+            data2[5] = liczby[row2_100];
+            data2[6] = liczby[row2_10];
+            data2[7] = liczby[row2_1];
+          }
+        }
+      }
+    }
+    else{
+      data1[0] = {' '};
+      data1[1] = {' '};
+      data1[2] = {'M'};
+      data1[3] = {'E'};
+      data1[4] = {'N'};
+      data1[5] = {'U'};
+      data1[6] = {' '};
+      data1[7] = {' '};
     }
   }
   else{
@@ -1177,4 +1206,13 @@ void send_fis(){
   if(f_OBD_read > 150) f_OBD_read = 1;           
   loop_count = 0; 
   mf_read = 0;
+}
+
+
+//--------------------  Auxiliary Electric Heater Driver ------------------
+void aux_heater(){
+  if(rpm>800 && ext_temp<10 && coolant_temp <40){
+    digitalWrite(AUX_HEATER_1,HIGH);
+  }
+  else digitalWrite(AUX_HEATER_1,LOW);
 }
