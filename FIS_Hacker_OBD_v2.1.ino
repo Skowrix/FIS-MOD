@@ -53,7 +53,7 @@
 #include <SPI.h>
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
-#include <MAX6675.h>  //MAX6675 with hardware SPI (https://github.com/zhenek-kreker/MAX6675/)
+#include <max6675.h>  //MAX6675 with hardware SPI (https://github.com/zhenek-kreker/MAX6675/)
 
 
 //-----------------------------  Definicje pinow -----------------------------------
@@ -66,11 +66,14 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define CAN_DRIVETRAIN_PIN 9   
 #define CAN_INFOTAIMENT_PIN 7 
 #define BUTTON_PIN  A0   
-#define THERMO_CS = 18;
+#define THERMO_CS 18
+#define THERMO_DO 17
+#define THERMO_CLK  19
+#define THERMO_READ_DELAY 500 //odstep miedzy odczytami z MAX6675
 
 MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
 MCP_CAN CAN1(CAN_INFOTAIMENT_PIN);
-MAX6675 thermocouple(THERMO_CS);
+MAX6675 thermocouple(THERMO_CLK, THERMO_CS, THERMO_DO);
 
 //-----------------------------  Definicje settinsów -----------------------------------
 #define OILP 0
@@ -106,7 +109,7 @@ int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_pr
 int16_t boost_ref, oil_adc;  //boost reference value
 
 //--------  zmienne do wyswietlania danych  -------------
-uint8_t f_screen1, f_screen2, f_alarm;
+uint8_t f_screen1, f_screen2, f_alarm, internal_error;
 uint8_t f_settings = 1;
 int16_t row1_1, row1_10, row1_100, row2_1, row2_10, row2_100; //display values
 char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
@@ -128,6 +131,7 @@ uint16_t loop_count;  //licznik petli
 uint8_t f_debug = 0;  // debugowanie
 uint8_t f_OBD_read = 1; //zmienna pomocnicza wskazujÄ…ca na aktywny odczyt z OBD
 uint8_t mf_byte1, mf_byte2, mf_read=0;  //obsĹ‚uga kierownicy MF
+unsigned long last_thermo_read; //zmienna do obliczania opoznienia odczytow z MAX6675
 
 
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -166,20 +170,26 @@ void setup(){
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     Serial.println("CAN Drivetrain Started!");
     CAN0.setMode(MCP_NORMAL);
-  }else Serial.println("Starting CAN Drivetrain failed!");
+  }else{
+    internal_error = 1;
+    Serial.println("Starting CAN Drivetrain failed!");
+  } 
 
 
   //------------------------- aktywuj CAN INFOTAIMENT  ------------------------------
   if (CAN1.begin(MCP_ANY, CAN_100KBPS, MCP_8MHZ) == CAN_OK) {
     Serial.println("CAN Infotaiment Started!");
     CAN1.setMode(MCP_NORMAL);
-  }else Serial.println("Starting CAN Infotaiment failed!");
+  }else{
+    internal_error = 1;
+    Serial.println("Starting CAN Infotaiment failed!");
+  } 
 
   //----------------------  pobranie danych z EEPROM  -------------------------------      
   f_screen1 = EEPROM.read(1);
-  if(f_screen1 > 10) f_screen1 = 8;
+  if(f_screen1 > PARAMETRS_MAX) f_screen1 = 8;
   f_screen2 = EEPROM.read(2);
-  if(f_screen2 > 10) f_screen2 = 9; 
+  if(f_screen2 > PARAMETRS_MAX) f_screen2 = 9; 
   
   
   //-----------------------------  uruchom ELM ------------------------------------- 
@@ -225,22 +235,23 @@ void setup(){
 void loop(){
   
   CAN0.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN DRIVETRAIN
-
   if(rxId == 1056) calc_tmp_oilt_rpm(); //przeliczenie temp. oleju i plynu chlodniczego
-
   if(rxId == 640) calc_rpm(); //przeliczenie RPM
-     
-  CAN1.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN INFOTAIMENT                            
-  
+
+  CAN1.readMsgBuf(&rxId, &len, rxBuf);       // odczyt CAN INFOTAIMENT                              
   if(mf_read == 0)calc_mf_bytes();  //odczyt polecen dla MFSW
-    
 
   /*======================================================================================================================================================
    * =============================================== funkcje wykonywane tylko 1 na 2000 petli ============================================================
    * =====================================================================================================================================================
   */
   
-  if(loop_count == 2) egt = (uint16_t)(thermocouple.readTempC()); //odczyt EGT z termopary 
+  if(loop_count == 2){
+    if(millis() - last_thermo_read > THERMO_READ_DELAY){
+      egt = (uint16_t)(thermocouple.readCelsius()); //odczyt EGT z termopary 
+      last_thermo_read = millis();
+    } 
+  } 
 
   if(loop_count == 25) obd_send_pid();  //wyslanie pidow do OBD
 
@@ -501,14 +512,16 @@ void mfsw(){
   if((mf_byte1 == 57) && (mf_byte2 == 1)){          //39 01 - double press  
     if(f_screen1/100 == 0){
       f_screen1=f_screen1+100;
+      /*
       byte data_byte[] = {0x0, 0xb2, 0x00, 0x00, 0x00, 0x00, 0x10};
       CAN1.sendMsgBuf(0x665, 0, 7, data_byte);  //turn off Phone module   
       if(f_debug == 1 || f_debug == 2)  Serial.println("Phone deactivated"); 
       delay(500);
+      */
     }
     else{
       f_screen1=f_screen1-100;
-      delay(200);
+      //delay(200);
     }
     EEPROM.write(1,f_screen1);
     if(f_debug == 1 || f_debug == 2){
@@ -606,6 +619,12 @@ void alarms(){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
     f_screen2 = OILP;
+  }
+
+  //----  blad software/hardware FIS-MOD'a  -----
+  if(internal_error != 0)
+  {
+    digitalWrite(BUZZER_PIN, HIGH);
   }
 
 }
