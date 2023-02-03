@@ -72,7 +72,13 @@ SoftwareSerial mySerial(3, 2); // RX, TX
 #define THERMO_CLK  19
 #define AUX_HEATER_1 A1
 
-#define OIL_PRESS_DELAY 1000  //czas na wytworzenie cisnienia w magistrali od momentu uruchomienia silnika
+//------- Aux heater settings ----------
+#define AUX_HTR_RPM 800
+#define AUX_HTR_EXTMP 10
+#define AUX_HTR_CLT 45
+#define AUX_HTR_DELAY 3000  //opoznienie wlaczenia grzalki po uruchomieniu silnika [ms]
+
+#define OIL_PRESS_DELAY 1000  //czas na wytworzenie cisnienia w magistrali od momentu uruchomienia silnika [ms]
 #define THERMO_READ_DELAY 500 //odstep miedzy odczytami z MAX6675
 
 MCP_CAN CAN0(CAN_DRIVETRAIN_PIN);
@@ -144,7 +150,7 @@ void setup(){
   Serial.begin(9600);
   while (!Serial);
   
-  ELM_PORT.begin(38400);//oryginalnie 115200, moje ELM laczylo sie na 38400
+  ELM_PORT.begin(38400);//oryginalnie 115200, ELM laczylo sie na 38400
 
   pinMode(OILP_PIN, INPUT);
   pinMode(BOOST_PIN, INPUT);
@@ -172,7 +178,8 @@ void setup(){
   if (CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ) == CAN_OK) {
     Serial.println("CAN Drivetrain Started!");
     CAN0.setMode(MCP_NORMAL);
-  }else{
+  }
+  else{
     internal_error = 1;
     Serial.println("Starting CAN Drivetrain failed!");
   } 
@@ -182,7 +189,8 @@ void setup(){
   if (CAN1.begin(MCP_ANY, CAN_100KBPS, MCP_8MHZ) == CAN_OK) {
     Serial.println("CAN Infotaiment Started!");
     CAN1.setMode(MCP_NORMAL);
-  }else{
+  }
+  else{
     internal_error = 1;
     Serial.println("Starting CAN Infotaiment failed!");
   } 
@@ -262,7 +270,7 @@ void loop(){
 
   if(loop_count == 1500) ReadData_COM();  //odczyt portu COM (debug)
 
-  if(loop_count == 1600) aux_heater();  //uruchom ogrzewanie dodatkowe
+  if(loop_count == 1600 && coolant_temp<AUX_HTR_CLT) aux_heater();  //uruchom ogrzewanie dodatkowe
 
   if(loop_count == 1750) debug(); //obsluga debugowania
 
@@ -287,8 +295,7 @@ void loop(){
 
 void ReadData_OBD(){
   BuildINString="";  
-  while(mySerial.available() > 0)
-  {
+  while(mySerial.available() > 0){
     inData=0;
     inChar=0;
     inData = mySerial.read();
@@ -504,8 +511,8 @@ void obd_send_pid(){
         default:
         break;        
       }
-    mySerial.println(OBD);  
-    if(f_debug == 1|| f_debug == 4){
+      mySerial.println(OBD);  
+      if(f_debug == 1|| f_debug == 4){
       Serial.print("OBD Command sent: "); 
       Serial.println(OBD);    
     }
@@ -635,12 +642,11 @@ void alarms(){
     f_screen2 = OILP;
   }
 
-  //----  blad software/hardware FIS-MOD'a  -----
+  //-----  blad software/hardware FIS-MOD'a  -----
   if(internal_error != 0)
   {
     digitalWrite(BUZZER_PIN, HIGH);
   }
-
 }
 
 
@@ -1091,79 +1097,7 @@ void calc_row2(){
 void send_fis(){   
 
   //--------------  1 linijka -------------------
-  if(f_alarm == 0){
-    if(f_screen%100 != 200){
-      if(f_screen1 == RPM){
-        data1[4] = liczby[row1_100];  
-        data1[5] = liczby[row1_10];
-        data1[6] = liczby[row1_1];
-        data1[7] = liczby[0];
-      }
-      else{
-        if(f_screen1 == OILP){
-          data1[4] = liczby[11];  //spacja
-          data1[5] = liczby[row1_100];
-          data1[6] = liczby[12]; //znak kropki "."
-          data1[7] = liczby[row1_10];
-        }
-        else{
-          if(f_screen1 == LBD || f_screen1 == BST){
-            data1[4] = liczby[row1_100];
-            data1[5] = liczby[12]; //znak kropki "."
-            data1[6] = liczby[row1_10];
-            data1[7] = liczby[row1_1];
-          } 
-          else{
-            data1[4] = liczby[11];  //spacja
-            data1[5] = liczby[row1_100];
-            data1[6] = liczby[row1_10];
-            data1[7] = liczby[row1_1];
-          }
-        }
-      }
-    
-      //--------------  2 linijka ---------------
-      if(f_screen2 == RPM){
-        data2[4] = liczby[row2_100];
-        data2[5] = liczby[row2_10];
-        data2[6] = liczby[row2_1]; 
-        data2[7] = liczby[0];
-      }
-      else{
-        if(f_screen2 == OILP){
-          data2[4] = liczby[11];  //spacja
-          data2[5] = liczby[row2_100];
-          data2[6] = liczby[12];  //kropka
-          data2[7] = liczby[row2_10];
-        }
-        else{
-          if(f_screen2 == LBD || f_screen2 == BST){
-            data2[4] = liczby[row2_100];
-            data2[5] = liczby[12];  //kropka
-            data2[6] = liczby[row2_10];
-            data2[7] = liczby[row2_1];
-          }
-          else{
-            data2[4] = liczby[11];  //spacja
-            data2[5] = liczby[row2_100];
-            data2[6] = liczby[row2_10];
-            data2[7] = liczby[row2_1];
-          }
-        }
-      }
-    }
-    else{
-      data1[0] = {' '};
-      data1[1] = {' '};
-      data1[2] = {'M'};
-      data1[3] = {'E'};
-      data1[4] = {'N'};
-      data1[5] = {'U'};
-      data1[6] = {' '};
-      data1[7] = {' '};
-    }
-  }
-  else{
+  if(f_alarm != 0){
     data1[0] = {' '};
     data1[1] = {'A'};
     data1[2] = {'L'};
@@ -1173,10 +1107,78 @@ void send_fis(){
     data1[6] = {'!'};
     data1[7] = {' '};
   }
+  else if(f_screen1%100 != 200){
+    if(f_screen1 == RPM){
+      data1[4] = liczby[row1_100];  
+      data1[5] = liczby[row1_10];
+      data1[6] = liczby[row1_1];
+      data1[7] = liczby[0];
+    }
+    else{
+      if(f_screen1 == OILP){
+        data1[4] = liczby[11];  //spacja
+        data1[5] = liczby[row1_100];
+        data1[6] = liczby[12]; //znak kropki "."
+        data1[7] = liczby[row1_10];
+      }
+      else{
+        if(f_screen1 == LBD || f_screen1 == BST){
+          data1[4] = liczby[row1_100];
+          data1[5] = liczby[12]; //znak kropki "."
+          data1[6] = liczby[row1_10];
+          data1[7] = liczby[row1_1];
+        } 
+        else{
+          data1[4] = liczby[11];  //spacja
+          data1[5] = liczby[row1_100];
+          data1[6] = liczby[row1_10];
+          data1[7] = liczby[row1_1];
+        }
+      }
+    }
+  } else{
+    data1[0] = {' '};
+    data1[1] = {' '};
+    data1[2] = {'M'};
+    data1[3] = {'E'};
+    data1[4] = {'N'};
+    data1[5] = {'U'};
+    data1[6] = {' '};
+    data1[7] = {' '};
+  }
+
+  //--------------  2 linijka ---------------
+  if(f_screen2 == RPM){
+    data2[4] = liczby[row2_100];
+    data2[5] = liczby[row2_10];
+    data2[6] = liczby[row2_1]; 
+    data2[7] = liczby[0];
+  }
+  else{
+    if(f_screen2 == OILP){
+      data2[4] = liczby[11];  //spacja
+      data2[5] = liczby[row2_100];
+      data2[6] = liczby[12];  //kropka
+      data2[7] = liczby[row2_10];
+    }
+    else{
+      if(f_screen2 == LBD || f_screen2 == BST){
+        data2[4] = liczby[row2_100];
+        data2[5] = liczby[12];  //kropka
+        data2[6] = liczby[row2_10];
+        data2[7] = liczby[row2_1];
+      }
+      else{
+        data2[4] = liczby[11];  //spacja
+        data2[5] = liczby[row2_100];
+        data2[6] = liczby[row2_10];
+        data2[7] = liczby[row2_1];
+      }
+    }
+  }
   
   CAN1.sendMsgBuf(0x265, 0, 8, data1); 
   CAN1.sendMsgBuf(0x267, 0, 8, data2);
-
 
   if(f_debug == 1 || f_debug == 3){
     Serial.print("Screen1: ");
@@ -1211,7 +1213,7 @@ void send_fis(){
 
 //--------------------  Auxiliary Electric Heater Driver ------------------
 void aux_heater(){
-  if(rpm>800 && ext_temp<10 && coolant_temp <40){
+  if(millis()-eng_start_time>AUX_HTR_DELAY && rpm>AUX_HTR_RPM && ext_temp<AUX_HTR_EXTMP){
     digitalWrite(AUX_HEATER_1,HIGH);
   }
   else digitalWrite(AUX_HEATER_1,LOW);
