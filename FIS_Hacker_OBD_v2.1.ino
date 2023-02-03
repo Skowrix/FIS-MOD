@@ -98,8 +98,9 @@ MAX6675 thermocouple(THERMO_CLK, THERMO_CS, THERMO_DO);
 #define BST 9
 #define TMP 10
 #define RPM 11
+#define HTR 12
 
-#define PARAMETRS_MAX 11 //Liczba wszystkich parametrow - ważne aby aktualizować przy dodawaniu nowych !!!
+#define PARAMETRS_MAX 12 //Liczba wszystkich parametrow - ważne aby aktualizować przy dodawaniu nowych !!!
 
 //---------------------------  Definicje zmiennych ----------------------------------
 
@@ -865,7 +866,13 @@ void calc_row1(){
       row1_10 = (rpm/100)-(row1_100*10);
       row1_1 = (rpm-(row1_100*1000)-(row1_10*100))/10; 
       break;
-            
+
+    case HTR:
+      data1[0]='H';
+      data1[1]='T';
+      data1[2]='R';
+      data1[3]=' '; 
+
     default:
       break; 
   }
@@ -1087,6 +1094,13 @@ void calc_row2(){
       row2_1 = (rpm-(row2_100*1000)-(row2_10*100))/10; 
       break;
 
+    case HTR:
+      data2[0]='H';
+      data2[1]='T';
+      data2[2]='R';
+      data2[3]=' '; 
+      break;
+
     default:
       break; 
   }
@@ -1127,12 +1141,28 @@ void send_fis(){
           data1[5] = liczby[12]; //znak kropki "."
           data1[6] = liczby[row1_10];
           data1[7] = liczby[row1_1];
-        } 
-        else{
-          data1[4] = liczby[11];  //spacja
-          data1[5] = liczby[row1_100];
-          data1[6] = liczby[row1_10];
-          data1[7] = liczby[row1_1];
+        }
+        else { 
+          if(f_screen1 == HTR){ 
+            if(aux_heater()==1){
+              data1[4] = liczby[11];  //spacja
+              data1[5] = 'O';
+              data1[6] = 'F';
+              data1[7] = 'F';
+            }
+            else{
+              data1[4] = liczby[11];  //spacja
+              data1[5] = liczby[11];  //spacja
+              data1[6] = 'O';
+              data1[7] = 'N';
+            }
+          }
+          else{
+            data1[4] = liczby[11];  //spacja
+            data1[5] = liczby[row1_100];
+            data1[6] = liczby[row1_10];
+            data1[7] = liczby[row1_1];
+          }
         }
       }
     }
@@ -1168,11 +1198,27 @@ void send_fis(){
         data2[6] = liczby[row2_10];
         data2[7] = liczby[row2_1];
       }
-      else{
-        data2[4] = liczby[11];  //spacja
-        data2[5] = liczby[row2_100];
-        data2[6] = liczby[row2_10];
-        data2[7] = liczby[row2_1];
+      else { 
+          if(f_screen1 == HTR){ 
+            if(aux_heater()==1){
+              data2[4] = liczby[11];  //spacja
+              data2[5] = 'O';
+              data2[6] = 'F';
+              data2[7] = 'F';
+            }
+            else{
+              data2[4] = liczby[11];  //spacja
+              data2[5] = liczby[11];  //spacja
+              data2[6] = 'O';
+              data2[7] = 'N';
+            }
+          }
+        else{
+          data2[4] = liczby[11];  //spacja
+          data2[5] = liczby[row2_100];
+          data2[6] = liczby[row2_10];
+          data2[7] = liczby[row2_1];
+        }
       }
     }
   }
@@ -1212,9 +1258,13 @@ void send_fis(){
 
 
 //--------------------  Auxiliary Electric Heater Driver ------------------
-void aux_heater(){
+uint8_t aux_heater(){
   if(millis()-eng_start_time>AUX_HTR_DELAY && rpm>AUX_HTR_RPM && ext_temp<AUX_HTR_EXTMP){
     digitalWrite(AUX_HEATER_1,HIGH);
+    return 1;
   }
-  else digitalWrite(AUX_HEATER_1,LOW);
+  else {
+    digitalWrite(AUX_HEATER_1,LOW);
+    return 0;
+  }
 }
