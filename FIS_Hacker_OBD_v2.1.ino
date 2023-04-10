@@ -117,7 +117,7 @@ int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm
 int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia Oil_press)
 
 //--------  zmienne do wyswietlania danych  -------------
-uint8_t f_screen1, f_screen2, f_alarm, internal_error;
+uint8_t f_screen1, f_screen2, f_alarm, internal_error, f_screen2_alarm;
 uint8_t f_settings = 1;
 int16_t row1_1, row1_10, row1_100, row2_1, row2_10, row2_100; //display values
 char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
@@ -414,6 +414,7 @@ void mfsw(){
     else f_settings =1;
     digitalWrite(BUZZER_PIN, LOW);  //wylaczenie alarmow
     f_alarm = 0;
+    f_screen2 = f_screen2_alarm;
     mf_read = 1;
   }
 
@@ -633,13 +634,15 @@ void alarms(){
   //-------- Oil Pressure  -----------
   if(oil_press<100 && rpm>700 && millis()-eng_start_time>OIL_PRESS_DELAY){
     digitalWrite(BUZZER_PIN, HIGH);
-    f_alarm = 1;   
+    f_alarm = 1;
+    f_screen2_alarm = f_screen2;   
     f_screen2 = OILP;
   } 
   
   if(rpm > 2000 && oil_press<200){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
+    f_screen2_alarm = f_screen2;
     f_screen2 = OILP;
   }
 
@@ -1199,7 +1202,7 @@ void send_fis(){
         data2[7] = liczby[row2_1];
       }
       else { 
-          if(f_screen1 == HTR){ 
+          if(f_screen2 == HTR){ 
             if(aux_heater()==1){
               data2[4] = liczby[11];  //spacja
               data2[5] = 'O';
