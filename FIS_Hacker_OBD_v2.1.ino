@@ -117,7 +117,7 @@ int16_t boost, oil_temp, coolant_temp, stft, ltft, tadv, iat, maf, lbd, egt, rpm
 int32_t A, B, oil_press1, oil_press2, oil_press3, oil_press4, oil_press5, oil_press6, oil_press;      //zmienione z int16_t (ze wzgl. na wartosci lbd i obliczenia Oil_press)
 
 //--------  zmienne do wyswietlania danych  -------------
-uint8_t f_screen1, f_screen2, f_alarm, internal_error, f_screen2_alarm;
+uint8_t f_screen1, f_screen2, f_alarm, internal_error, f_screen2_alarm, alarm_active;
 uint8_t f_settings = 1;
 int16_t row1_1, row1_10, row1_100, row2_1, row2_10, row2_100; //display values
 char liczby[14] = {'0','1','2','3','4','5','6','7','8','9','-',' ','.','-'};
@@ -201,7 +201,9 @@ void setup(){
   if(f_screen1 > PARAMETRS_MAX) f_screen1 = 8;
   f_screen2 = EEPROM.read(2);
   if(f_screen2 > PARAMETRS_MAX) f_screen2 = 9; 
-  
+  alarm_active = EEPROM.read(3);
+  if(alarm_active > 0) alarm_active = 1;
+  f_screen2_alarm = f_screen2;
   
   //-----------------------------  uruchom ELM ------------------------------------- 
   mySerial.println("ATZ");  //RESET_ALL
@@ -395,6 +397,10 @@ void mfsw(){
 
   //---------------  Phone button press (MENU) -------------------
   if(mf_byte1 == 60 && mf_byte2 == 42){          //3C 2A - double press  
+    if(alarm_active == 0) alarm_active = 1;
+    else alarm_active = 0;
+    EEPROM.write(3,alarm_active);
+  /*
     if(f_screen1/100 == 0){
       f_screen1=f_screen1+200;
     }
@@ -406,6 +412,8 @@ void mfsw(){
       Serial.println(f_screen1);
     }
     mf_read = 1;
+
+    */
   }
 
   //---------------  Scroll button single press -------------------
@@ -413,8 +421,10 @@ void mfsw(){
     if(f_settings == 1) f_settings=2;
     else f_settings =1;
     digitalWrite(BUZZER_PIN, LOW);  //wylaczenie alarmow
-    f_alarm = 0;
-    f_screen2 = f_screen2_alarm;
+    if(f_alarm != 0){
+      f_screen2 = f_screen2_alarm;
+      f_alarm = 0;
+    } 
     mf_read = 1;
   }
 
@@ -632,14 +642,14 @@ void alarms(){
   //wylaczenie alarmow przez nacisniecie rolki (zmiana linijki)
   
   //-------- Oil Pressure  -----------
-  if(oil_press<100 && rpm>700 && millis()-eng_start_time>OIL_PRESS_DELAY){
+  if(alarm_active == 1 && oil_press<100 && rpm>700 && millis()-eng_start_time>OIL_PRESS_DELAY){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
     f_screen2_alarm = f_screen2;   
     f_screen2 = OILP;
   } 
   
-  if(rpm > 2000 && oil_press<200){
+  if(alarm_active == 1 && rpm > 2000 && oil_press<200){
     digitalWrite(BUZZER_PIN, HIGH);
     f_alarm = 1;
     f_screen2_alarm = f_screen2;
@@ -647,7 +657,7 @@ void alarms(){
   }
 
   //-----  blad software/hardware FIS-MOD'a  -----
-  if(internal_error != 0)
+  if(alarm_active == 1 && internal_error != 0)
   {
     digitalWrite(BUZZER_PIN, HIGH);
   }
